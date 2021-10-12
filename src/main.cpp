@@ -2,6 +2,8 @@
 #include <LiquidCrystal.h>
 #include <PID_v1.h>
 #include <Timer.h>
+#include <EEPROM.h>
+#include "EEPROMAnything.h"
 
 
 // pines encoder
@@ -10,8 +12,8 @@ int clk  = 3;   // verde
 int data = 5;   // azul
  
 // pines lcd
-const int rs = 12;  // rojo 
-const int en = 13;  // azul
+const int rs = 12; // rojo 
+const int en = 13; // azul
 const int d4 = 8;  // verde
 const int d5 = 9;  // negro
 const int d6 = 10; // verde 
@@ -31,9 +33,14 @@ const int TEMP = 0; // A0
 Timer timer1;  // timer para display
 Timer timer2;  // timer para menu
 
+long segundos;
+int h, m, s;
+
+bool temporizador_activo = false;
 bool calentador_activo = false;
+
 int  menu_posicion = 0;
-bool menu_activar = 0;
+int  menu_activar = 0;
 bool menu_presionado = 0;
 
 int  encoder_val = 0;
@@ -70,16 +77,6 @@ void setup() {
 
     Serial.begin(9600);  
 
-    timer1.every(1000, cada_un_segundo);
-
-    lcd.begin(16, 2); //Initialise 16*2 LCD
-    lcd.print("Sanyo Incubator "); 
-    lcd.setCursor(0, 1);
-    lcd.print("V20211008"); 
-    
-    delay(2000);
-    lcd.clear();
-    
     //pin Mode declaration 
     pinMode (clk, INPUT_PULLUP);
     pinMode (data, INPUT_PULLUP);
@@ -87,11 +84,28 @@ void setup() {
     pinMode (SSR, OUTPUT);
     pinMode (BUZZ, OUTPUT);
 
+    lcd.begin(16, 2); //Initialise 16*2 LCD
+    lcd.print("Sanyo Incubator "); 
+    lcd.setCursor(0, 1);
+    lcd.print("V20211008"); 
+
+    //recupera valores
+    EEPROM_readAnything(10, Setpoint);
+    EEPROM_readAnything(20, calentador_activo);
+    EEPROM_readAnything(30, temporizador_activo);
+    EEPROM_readAnything(40, segundos);
+
+
+    delay(2000);
+    lcd.clear();
+    
     //interrupcion encoder
     attachInterrupt(digitalPinToInterrupt(clk), doEncoder, CHANGE);
 
+    // init timer
+    timer1.every(1000, cada_un_segundo);
+
     windowStartTime = millis();
-    Setpoint = 20;
     myPID.SetOutputLimits(0, WindowSize);
     myPID.SetMode(AUTOMATIC);
 
@@ -130,15 +144,22 @@ void loop() {
     if (menu_posicion == 1){
         if (encoder < 10){
             lcd.setCursor(0,1);
-            lcd.print("  [NO]    SI   ");
+            lcd.print(" [NO]  SI   TE ");
             menu_activar = 0;
         }
-        if (encoder > 10){
-            lcd.setCursor(0,1);
-            lcd.print("   NO    [SI]  ");
-            menu_activar = 1;
+        if (encoder > 10){ 
+            if (encoder < 20){
+                lcd.setCursor(0,1);
+                lcd.print("  NO  [SI]  TE ");
+                menu_activar = 1;
+            }
         }
-        if (encoder > 20) encoder = 20;
+        if (encoder > 20){
+            lcd.setCursor(0,1);
+            lcd.print("  NO   SI  [TE]");
+            menu_activar = 2;
+        }
+        if (encoder > 30) encoder = 30;
         if (encoder < 0 ) encoder = 0;
     }
 
@@ -166,7 +187,39 @@ void loop() {
         encoder_last = encoder_val;
     }
 
-    // Menu
+    if (menu_posicion == 3){
+
+        if (encoder_last > encoder_val){
+            segundos -= 900;
+            if(segundos < 0){
+                segundos = 0;
+            }
+
+            h = segundos / 3600;
+            m = ( segundos % 3600 ) / 60;
+            s = ( segundos % 3600 ) % 60;
+
+            lcd.setCursor(3, 1);
+            sprintf(buffer,"%02d:%02d:%02d",h,m,s);
+            lcd.print(buffer);
+            
+        }
+        if (encoder_last < encoder_val){
+            segundos += 900;
+
+            h = segundos / 3600;
+            m = ( segundos % 3600 ) / 60;
+            s = ( segundos % 3600 ) % 60;
+            
+            lcd.setCursor(3, 1);
+            sprintf(buffer,"%02d:%02d:%02d",h,m,s);
+            lcd.print(buffer);
+
+        }
+        encoder_last = encoder_val;
+    }
+
+    // click Menu
     if( !digitalRead(swt) & !menu_presionado){
         menu_presionado = 1;
 
@@ -174,32 +227,100 @@ void loop() {
             lcd.clear();
             lcd.setCursor(0,0);  
             lcd.print("Activar ?");
-            lcd.setCursor(0,1);       
-            if(calentador_activo){
-                lcd.print("   NO    [SI]  ");  
-                menu_activar = 1;
-                encoder = 20;
-            }else{
-                lcd.print("  [NO]    SI   ");  
-                menu_activar = 0;
-                encoder = 0;
-            }
+            encoder = 0;
             menu_posicion = 1;
         }
         else if(menu_posicion == 1){
-            lcd.clear();
-            lcd.setCursor(0,0);  
-            lcd.print("Temperatura ?");
-            lcd.setCursor(0,1);
-            lcd.print("   ");
-            lcd.print(Setpoint);
-            lcd.print((char)223);
-            menu_posicion = 2;
-            encoder = 512;
+
+            if(menu_activar == 0){
+
+                menu_posicion = 0;
+                calentador_activo = 0;
+                temporizador_activo = 0;
+
+                EEPROM_writeAnything(20, calentador_activo);
+                EEPROM_writeAnything(30, temporizador_activo);
+
+            }
+            else if(menu_activar == 1){
+
+                lcd.clear();
+                lcd.setCursor(0,0);  
+                lcd.print("Temperatura ?");
+                lcd.setCursor(0,1);
+                lcd.print("   ");
+                lcd.print(Setpoint);
+                lcd.print((char)223);
+                menu_posicion = 2;
+                temporizador_activo = 0;
+                encoder = 512;
+            
+            }
+            else if(menu_activar == 2){
+
+                lcd.clear();
+                lcd.setCursor(0,0);  
+                lcd.print("Temporizador ?");
+
+                lcd.setCursor(3,1);
+                lcd.print("00:00:00");
+
+                segundos = 0;
+                menu_posicion = 3;
+                temporizador_activo = 1;
+                encoder = 0;
+
+            }
+            
         }
         else if(menu_posicion == 2){
-            menu_posicion = 0;
-            calentador_activo = menu_activar;
+
+            if (menu_activar == 1){
+                 
+                menu_posicion = 0;
+                calentador_activo = 1;
+                temporizador_activo = 0;
+
+                EEPROM_writeAnything(20, calentador_activo);
+                EEPROM_writeAnything(30, temporizador_activo);
+
+            }
+            else if (menu_activar == 2){
+
+                lcd.clear();
+                lcd.setCursor(0,0);  
+                lcd.print("Temporizador ?");
+                lcd.setCursor(0,1);
+
+                segundos = 0;
+
+                h = segundos / 3600;
+                m = ( segundos % 3600 ) / 60;
+                s = ( segundos % 3600 ) % 60;
+
+                lcd.setCursor(3, 1);
+                sprintf(buffer,"%02d:%02d:%02d",h,m,s);
+                lcd.print(buffer);
+
+                menu_posicion = 3;
+                temporizador_activo = 1;
+                encoder = 512;
+
+                EEPROM_writeAnything(10, Setpoint);
+            }
+
+            
+        }
+        else if(menu_posicion == 3){
+
+            menu_posicion = 0;    
+            calentador_activo = 1;
+            temporizador_activo = 1;
+
+            EEPROM_writeAnything(20, calentador_activo);
+            EEPROM_writeAnything(30, temporizador_activo);
+            EEPROM_writeAnything(40, segundos);
+
         }
 
     }
@@ -239,11 +360,43 @@ void cada_un_segundo(){
 
         lcd.setCursor(0,1);
         lcd.print("E: ");
-        if(calentador_activo){
-            lcd.print("Activo    ");
+
+        if(temporizador_activo){
+
+            h = segundos / 3600;
+            m = ( segundos % 3600 ) / 60;
+            s = ( segundos % 3600 ) % 60;
+
+            lcd.setCursor(3, 1);
+            sprintf(buffer,"%02d:%02d:%02d",h,m,s);
+            lcd.print(buffer);
+
+            segundos--;
+
+            if(segundos < 0){
+                segundos = 0;
+                calentador_activo = 0;
+                temporizador_activo = 0;
+
+                EEPROM_writeAnything(20, calentador_activo);
+                EEPROM_writeAnything(30, temporizador_activo);
+            }
+
+            // grabo los segundos en la eeprom solo cada 1 minuto
+            if ( s == 0 ) {
+                EEPROM_writeAnything(40, segundos);
+            } 
+
         }else{
-            lcd.print("Inactivo  ");
+
+            if(calentador_activo){
+                lcd.print("Activo    ");
+            }else{
+                lcd.print("Inactivo  ");
+            }
+
         }
+
     }
     
     Serial.println(Input);
