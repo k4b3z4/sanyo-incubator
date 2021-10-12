@@ -41,14 +41,14 @@ int  encoder_last = 0;
 int  encoder = 0;
 
 int Vo1, Vo2, Vo3;
-float R1 = 1000;
-float Vo, logR2, R2, T, Tc;
-float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
+double R1 = 1000;
+double Vo, logR2, R2, T, Tc;
+double c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 
 char   buffer[18];
 
 // **********************************************************************************
-float LeeTemperatura(void);
+double LeeTemperatura(void);
 void cada_un_segundo(void);
 void desactiva_menu(void);
 void doEncoder(void);
@@ -250,7 +250,8 @@ void cada_un_segundo(){
 }
 
 
-float LeeTemperatura(){
+double LeeTemperatura(){
+
 
     delay(20);
     Vo1 = analogRead(TEMP);
@@ -259,7 +260,7 @@ float LeeTemperatura(){
     delay(5);
     Vo3 = analogRead(TEMP);
 
-    Vo = (float)(Vo1 + Vo2 + Vo3) / 3;
+    Vo = (double)(Vo1 + Vo2 + Vo3) / 3;
 
     R2 = R1 * (1023.0 / Vo - 1.0);
     logR2 = log(R2);
