@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <math.h>
 #include <LiquidCrystal.h>
 #include <PID_v1.h>
 #include <Timer.h>
@@ -25,8 +26,12 @@ const int SSR = 6;
 // buzzer
 const int BUZZ = 7; 
 
-// sensor temperatura 100k
-const int TEMP = 0; // A0
+// Thermistor 
+int ThermistorPin = 0;
+long Vo;
+double R1 = 10000;
+double logR2, Vprom, R2, T;
+double c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 
 
 // Vars
@@ -46,11 +51,6 @@ bool menu_presionado = 0;
 int  encoder_val = 0;
 int  encoder_last = 0;
 int  encoder = 0;
-
-int Vo1, Vo2, Vo3;
-double R1 = 1000;
-double Vo, logR2, R2, T, Tc;
-double c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 
 char   buffer[18];
 
@@ -83,9 +83,12 @@ void setup() {
     pinMode (swt, INPUT_PULLUP);
     pinMode (SSR, OUTPUT);
     pinMode (BUZZ, OUTPUT);
+    
+    // Aref -> 3.3v
+    analogReference(EXTERNAL);
 
     lcd.begin(16, 2); //Initialise 16*2 LCD
-    lcd.print("Sanyo Incubator "); 
+    lcd.print("Sanyo Incubator"); 
     lcd.setCursor(0, 1);
     lcd.print("V20211008"); 
 
@@ -114,9 +117,6 @@ void setup() {
 // #####################################################################################################
 
 void loop() {
-
-    // lee temperatura
-    Input = LeeTemperatura();
 
     
     if(calentador_activo){
@@ -348,6 +348,10 @@ void doEncoder(){
 
 void cada_un_segundo(){
 
+    // lee temperatura
+    Input = LeeTemperatura(); 
+
+
     if(menu_posicion == 0){
         lcd.clear();
 
@@ -399,26 +403,25 @@ void cada_un_segundo(){
 
     }
     
-    Serial.println(Input);
 }
-
 
 double LeeTemperatura(){
 
+    delay(10);
+    Vo = analogRead(ThermistorPin);
+    delay(10);
+    Vo += analogRead(ThermistorPin);
+    delay(10);
+    Vo += analogRead(ThermistorPin);
 
-    delay(20);
-    Vo1 = analogRead(TEMP);
-    delay(5);
-    Vo2 = analogRead(TEMP);
-    delay(5);
-    Vo3 = analogRead(TEMP);
+    Vprom = (double)Vo / 3;
 
-    Vo = (double)(Vo1 + Vo2 + Vo3) / 3;
-
-    R2 = R1 * (1023.0 / Vo - 1.0);
+    R2 = R1 *  ( 1 / (1023.0 / Vprom - 1.0));
     logR2 = log(R2);
+
     T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));
     T = T - 273.15;
 
     return T;
+
 }
