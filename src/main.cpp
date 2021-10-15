@@ -56,6 +56,7 @@ char   buffer[18];
 // **********************************************************************************
 double LeeTemperatura(void);
 void cada_un_segundo(void);
+void cada_un_minuto(void);
 void desactiva_menu(void);
 void doEncoder(void);
 
@@ -109,6 +110,7 @@ void setup() {
 
     // init timer
     timer1.every(1000, cada_un_segundo);
+    timer2.every(60000, cada_un_minuto);
 
     // setup PID time interval = 1 minuto
     myPID.setTimeStep(60000);
@@ -378,14 +380,6 @@ void cada_un_segundo(){
                 EEPROM_writeAnything(30, temporizador_activo);
             }
 
-            // Solo cada 1 minuto
-            if ( s == 0 ) {
-                // grabo los segundos en la eeprom
-                EEPROM_writeAnything(40, segundos);
-                // imprimo temperatura actual por puerto serie
-                Serial.println(Input);
-            } 
-
         }else{
 
             if(calentador_activo){
@@ -398,6 +392,16 @@ void cada_un_segundo(){
 
     }
     
+}
+
+void cada_un_minuto(){
+
+    Serial.println(Input);
+
+    if(temporizador_activo){
+        EEPROM_writeAnything(40, segundos);
+    }
+
 }
 
 double LeeTemperatura(){
