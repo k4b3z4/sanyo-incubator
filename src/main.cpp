@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include <LiquidCrystal.h>
-#include <PID_v1.h>
+#include <AutoPID.h>
 #include <Timer.h>
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
@@ -33,7 +33,6 @@ double R1 = 10000;
 double logR2, Vprom, R2, T;
 double c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 
-
 // Vars
 Timer timer1;  // timer para display
 Timer timer2;  // timer para menu
@@ -64,14 +63,16 @@ void doEncoder(void);
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // PID control
-int Kp = 40;
-int Ki = 2;
-int Kd = 800;
-double Setpoint, Input, Output;
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+#define KP 0.1
+#define KI 0
+#define KD 0
 
-unsigned long WindowSize = 5000;
-unsigned long windowStartTime;
+const double TimeBase=5000;
+double Input, Setpoint;
+bool relayState;
+
+AutoPIDRelay myPID(&Input, &Setpoint, &relayState, TimeBase,  KP, KI, KD);
+
 
 void setup() {
 
@@ -87,7 +88,8 @@ void setup() {
     // Aref -> 3.3v
     analogReference(EXTERNAL);
 
-    lcd.begin(16, 2); //Initialise 16*2 LCD
+    //Initialise 16*2 LCD
+    lcd.begin(16, 2); 
     lcd.print("Sanyo Incubator"); 
     lcd.setCursor(0, 1);
     lcd.print("V20211008"); 
@@ -108,10 +110,9 @@ void setup() {
     // init timer
     timer1.every(1000, cada_un_segundo);
 
-    windowStartTime = millis();
-    myPID.SetOutputLimits(0, WindowSize);
-    myPID.SetMode(AUTOMATIC);
-
+    // setup PID time interval = 1 minuto
+    myPID.setTimeStep(60000);
+    
 }
 
 // #####################################################################################################
@@ -120,23 +121,9 @@ void loop() {
 
     
     if(calentador_activo){
-
-        // Cálculos de PID
-        myPID.Compute();
-
-        unsigned long now = millis();
-        if (now - windowStartTime > WindowSize)
-        { //time to shift the Relay Window
-            windowStartTime += WindowSize;
-        }
-        if (Output > now - windowStartTime) {
-            digitalWrite(SSR, HIGH);
-        }else{
-            digitalWrite(SSR, LOW);
-        }
-
+        myPID.run();
+        digitalWrite(SSR, relayState);
     }else{
-
         digitalWrite(SSR, LOW);
     }
 
@@ -223,6 +210,7 @@ void loop() {
     if( !digitalRead(swt) & !menu_presionado){
         menu_presionado = 1;
 
+        // activa menu principal
         if(menu_posicion == 0){
             lcd.clear();
             lcd.setCursor(0,0);  
@@ -230,6 +218,8 @@ void loop() {
             encoder = 0;
             menu_posicion = 1;
         }
+
+        // vuelve del menu Activar NO SI TEMP
         else if(menu_posicion == 1){
 
             if(menu_activar == 0){
@@ -273,6 +263,8 @@ void loop() {
             }
             
         }
+
+        // vuelve del menu setea temperatura
         else if(menu_posicion == 2){
 
             if (menu_activar == 1){
@@ -280,9 +272,6 @@ void loop() {
                 menu_posicion = 0;
                 calentador_activo = 1;
                 temporizador_activo = 0;
-
-                EEPROM_writeAnything(20, calentador_activo);
-                EEPROM_writeAnything(30, temporizador_activo);
 
             }
             else if (menu_activar == 2){
@@ -305,13 +294,16 @@ void loop() {
                 menu_posicion = 3;
                 temporizador_activo = 1;
                 encoder = 512;
-
-                EEPROM_writeAnything(10, Setpoint);
             }
 
+            EEPROM_writeAnything(10, Setpoint);
+            EEPROM_writeAnything(20, calentador_activo);
+            EEPROM_writeAnything(30, temporizador_activo);
             
         }
-        else if(menu_posicion == 3){
+
+        // vuelve del menu setea temporizador
+        else if(menu_posicion == 3){ 
 
             menu_posicion = 0;    
             calentador_activo = 1;
@@ -421,6 +413,8 @@ double LeeTemperatura(){
 
     T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));
     T = T - 273.15;
+
+    Serial.println(Input);
 
     return T;
 
