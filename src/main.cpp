@@ -65,7 +65,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // PID control
 #define KP 0.1
-#define KI 0
+#define KI 0.05
 #define KD 0
 
 const double TimeBase=5000;
