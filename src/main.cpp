@@ -323,8 +323,9 @@ void loop() {
         menu_presionado = 0;
     }
 
-    // Actualiza display
+    // Actualiza timers
     timer1.update();
+    timer2.update();
   
 }
 
