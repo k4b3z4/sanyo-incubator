@@ -378,9 +378,12 @@ void cada_un_segundo(){
                 EEPROM_writeAnything(30, temporizador_activo);
             }
 
-            // grabo los segundos en la eeprom solo cada 1 minuto
+            // Solo cada 1 minuto
             if ( s == 0 ) {
+                // grabo los segundos en la eeprom
                 EEPROM_writeAnything(40, segundos);
+                // imprimo temperatura actual por puerto serie
+                Serial.println(Input);
             } 
 
         }else{
@@ -413,8 +416,6 @@ double LeeTemperatura(){
 
     T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));
     T = T - 273.15;
-
-    Serial.println(Input);
 
     return T;
 
