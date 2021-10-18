@@ -6,6 +6,14 @@
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
+// Version
+#define MSG1 "Sanyo Incubator"
+#define MSG2 "V20211008"
+
+// PID control
+#define KP 0.1
+#define KI 0.0001
+#define KD 0
 
 // pines encoder
 int swt  = 2;   // rojo
@@ -35,7 +43,7 @@ double c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;
 
 // Vars
 Timer timer1;  // timer para display
-Timer timer2;  // timer para menu
+Timer timer2;  // timer para informar temperatura / grabar estado en eeprom
 
 long segundos;
 int h, m, s;
@@ -51,7 +59,7 @@ int  encoder_val = 0;
 int  encoder_last = 0;
 int  encoder = 0;
 
-char   buffer[18];
+char  buffer[18];
 
 // **********************************************************************************
 double LeeTemperatura(void);
@@ -63,10 +71,6 @@ void doEncoder(void);
 // init lcd
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-// PID control
-#define KP 0.1
-#define KI 0.05
-#define KD 0
 
 const double TimeBase=5000;
 double Input, Setpoint;
@@ -91,16 +95,18 @@ void setup() {
 
     //Initialise 16*2 LCD
     lcd.begin(16, 2); 
-    lcd.print("Sanyo Incubator"); 
+    lcd.print(MSG1); 
     lcd.setCursor(0, 1);
-    lcd.print("V20211008"); 
+    lcd.print(MSG2); 
 
-    //recupera valores
+    //recupera valores de la EEPROM
     EEPROM_readAnything(10, Setpoint);
     EEPROM_readAnything(20, calentador_activo);
     EEPROM_readAnything(30, temporizador_activo);
     EEPROM_readAnything(40, segundos);
 
+    //setup PID time interval = 10 seg
+    myPID.setTimeStep(10000);
 
     delay(2000);
     lcd.clear();
@@ -112,8 +118,6 @@ void setup() {
     timer1.every(1000, cada_un_segundo);
     timer2.every(60000, cada_un_minuto);
 
-    // setup PID time interval = 1 minuto
-    myPID.setTimeStep(60000);
     
 }
 
@@ -126,6 +130,7 @@ void loop() {
         myPID.run();
         digitalWrite(SSR, relayState);
     }else{
+        myPID.stop();
         digitalWrite(SSR, LOW);
     }
 
