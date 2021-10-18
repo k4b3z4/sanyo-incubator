@@ -12,7 +12,7 @@
 
 // PID control
 #define KP 0.1
-#define KI 0.0001
+#define KI 0.00001
 #define KD 0
 
 // pines encoder
