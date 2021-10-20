@@ -7,13 +7,13 @@
 #include "EEPROMAnything.h"
 
 // Version
-#define MSG1 "Sanyo Incubator"
-#define MSG2 "V20211008"
+#define MSG1 "Sanyo Incubator "
+#define MSG2 "1e-1 1e-5 1e-1  "
 
 // PID control
 #define KP 0.1
 #define KI 0.00001
-#define KD 0.001
+#define KD 0.1
 
 // pines encoder
 int swt  = 2;   // rojo
@@ -108,7 +108,8 @@ void setup() {
     //setup PID time interval = 10 seg
     myPID.setTimeStep(10000);
 
-    delay(2000);
+    //tiempo para ver msg
+    delay(3000);
     lcd.clear();
     
     //interrupcion encoder
