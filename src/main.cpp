@@ -8,12 +8,12 @@
 
 // Version
 #define MSG1 "Sanyo Incubator "
-#define MSG2 "1e-1 1e-5 1e-1  "
+#define MSG2 "v20211020       "
 
 // PID control
 #define KP 0.1
 #define KI 0.00001
-#define KD 0.1
+#define KD 10
 
 // pines encoder
 int swt  = 2;   // rojo
